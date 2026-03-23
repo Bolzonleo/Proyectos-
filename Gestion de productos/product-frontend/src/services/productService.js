@@ -5,6 +5,7 @@ export const getProductos = async () => {
   const data = await response.json();
   return data;
 };
+
 export const crearProducto = async (producto) => {
   const response = await fetch("https://localhost:7257/api/Productos", {
     method: "POST",
@@ -16,6 +17,23 @@ export const crearProducto = async (producto) => {
 
   return await response.json();
 };
+
+export const actualizarProducto = async (id, producto) => {
+  const response = await fetch(`https://localhost:7257/api/Productos/${id}`, {
+    method: "PUT",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(producto),
+  });
+
+  if (!response.ok) {
+    throw new Error(`Error al actualizar producto: ${response.statusText}`);
+  }
+
+  return response;
+};
+
 export const eliminarProducto = async (id) => {
   await fetch(`https://localhost:7257/api/Productos/${id}`, {
     method: "DELETE",
