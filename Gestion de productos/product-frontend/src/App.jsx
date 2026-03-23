@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { getProductos, crearProducto, eliminarProducto } from "./services/productService";
+import "./App.css";
 
 function App() {
   const [productos, setProductos] = useState([]);
