@@ -11,5 +11,10 @@
         public decimal Precio { get; set; }
 
         public int Stock { get; set; }
+
+        // 🔗 Relación
+        public Categoria Categoria { get; set; }
+
+        public ICollection<ImagenProducto> Imagenes { get; set; } = new List<ImagenProducto>();
     }
 }
