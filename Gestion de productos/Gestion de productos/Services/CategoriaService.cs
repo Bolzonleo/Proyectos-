@@ -1,0 +1,83 @@
+﻿using Gestion_de_productos.Data;
+using Gestion_de_productos.DTOs;
+using Gestion_de_productos.Models;
+using Gestion_de_productos.Services.Interfaces;
+using Microsoft.EntityFrameworkCore;
+
+namespace Gestion_de_productos.Services
+{
+    public class CategoriaService : ICategoriaService
+    {
+        private readonly AppDbContext _context;
+
+        public CategoriaService(AppDbContext context)
+        {
+            _context = context;
+        }
+
+        public async Task<IEnumerable<CategoriaDTO>> ObtenerTodosAsync()
+        {
+            var categorias = await _context.Categorias.ToListAsync();
+            return categorias.Select(c => new CategoriaDTO
+            {
+                Id = c.Id,
+                Nombre = c.Nombre
+            }).ToList();
+        }
+
+        public async Task<CategoriaDTO> ObtenerPorIdAsync(int id)
+        {
+            var categoria = await _context.Categorias.FirstOrDefaultAsync(c => c.Id == id);
+            if (categoria == null)
+                throw new Exception($"Categoría con ID {id} no encontrada");
+
+            return new CategoriaDTO
+            {
+                Id = categoria.Id,
+                Nombre = categoria.Nombre
+            };
+        }
+
+        public async Task<CategoriaDTO> CrearAsync(CrearCategoriaDTO dto)
+        {
+            var categoria = new Categoria
+            {
+                Nombre = dto.Nombre
+            };
+
+            _context.Categorias.Add(categoria);
+            await _context.SaveChangesAsync();
+
+            return new CategoriaDTO
+            {
+                Id = categoria.Id,
+                Nombre = categoria.Nombre
+            };
+        }
+
+        public async Task<bool> ActualizarAsync(int id, ActualizarCategoriaDTO dto)
+        {
+            var categoria = await _context.Categorias.FirstOrDefaultAsync(c => c.Id == id);
+            if (categoria == null)
+                throw new Exception($"Categoría con ID {id} no encontrada");
+
+            categoria.Nombre = dto.Nombre;
+            _context.Categorias.Update(categoria);
+            await _context.SaveChangesAsync();
+
+            return true;
+        }
+
+        public async Task<bool> EliminarAsync(int id)
+        {
+            var categoria = await _context.Categorias.FirstOrDefaultAsync(c => c.Id == id);
+            if (categoria == null)
+                throw new Exception($"Categoría con ID {id} no encontrada");
+
+            _context.Categorias.Remove(categoria);
+            await _context.SaveChangesAsync();
+
+            return true;
+        }
+    }
+}

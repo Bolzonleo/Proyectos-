@@ -13,6 +13,9 @@
         public int Stock { get; set; }
 
         // 🔗 Relación
+
+        // 🔗 Clave Foránea
+        public int CategoriaId { get; set; }
         public Categoria Categoria { get; set; }
 
         public ICollection<ImagenProducto> Imagenes { get; set; } = new List<ImagenProducto>();

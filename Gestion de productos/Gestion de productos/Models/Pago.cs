@@ -7,6 +7,7 @@
         public string FormaPago { get; set; } = string.Empty;
         public DateTime FechaPago { get; set; }
         public string Estado { get; set; } = string.Empty;
+        public double Monto { get; set; }
 
 
         // Relación con Pedido
