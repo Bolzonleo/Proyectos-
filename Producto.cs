@@ -1,0 +1,1 @@
+public int CategoriaId { get; set; } // Foreign key for categorias
