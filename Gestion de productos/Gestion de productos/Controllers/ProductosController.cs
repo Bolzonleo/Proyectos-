@@ -1,8 +1,6 @@
-﻿using Gestion_de_productos.Data;
-using Gestion_de_productos.Models;
+﻿using Gestion_de_productos.DTOs;
+using Gestion_de_productos.Services.Interfaces;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.EntityFrameworkCore;
-
 
 namespace Gestion_de_productos.Controllers
 {
@@ -10,63 +8,86 @@ namespace Gestion_de_productos.Controllers
     [Route("api/[controller]")]
     public class ProductosController : ControllerBase
     {
-        private readonly AppDbContext _context;
+        private readonly IProductoService _productoService;
 
-        public ProductosController(AppDbContext context)
+        public ProductosController(IProductoService productoService)
         {
-            _context = context;
+            _productoService = productoService;
         }
 
         [HttpGet]
-        public async Task<ActionResult<IEnumerable<Producto>>> Get()
+        public async Task<ActionResult<IEnumerable<ProductoDTO>>> Get([FromQuery] int? categoriaId, [FromQuery] string? nombre)
         {
-            return await _context.Productos.ToListAsync();
+            if (categoriaId.HasValue)
+            {
+                var productosPorCategoria = await _productoService.ObtenerPorCategoriaAsync(categoriaId.Value);
+                return Ok(productosPorCategoria);
+            }
+
+            if (!string.IsNullOrWhiteSpace(nombre))
+            {
+                var productosFiltrados = await _productoService.BuscarPorNombreAsync(nombre);
+                return Ok(productosFiltrados);
+            }
+
+            var productos = await _productoService.ObtenerTodosAsync();
+            return Ok(productos);
         }
 
         [HttpGet("{id}")]
-        public async Task<ActionResult<Producto>> Get(int id)
+        public async Task<ActionResult<ProductoDTO>> Get(int id)
         {
-            var producto = await _context.Productos.FindAsync(id);
-
-            if (producto == null)
-                return NotFound();
-
-            return producto;
+            try
+            {
+                var producto = await _productoService.ObtenerPorIdAsync(id);
+                return Ok(producto);
+            }
+            catch (Exception ex)
+            {
+                return NotFound(new ResponseDTO { Success = false, Message = ex.Message });
+            }
         }
 
         [HttpPost]
-        public async Task<ActionResult> Post(Producto producto)
+        public async Task<ActionResult<ProductoDTO>> Post([FromBody] CrearProductoDTO dto)
         {
-            _context.Productos.Add(producto);
-            await _context.SaveChangesAsync();
-
-            return Ok(producto);
+            try
+            {
+                var nuevoProducto = await _productoService.CrearAsync(dto);
+                return CreatedAtAction(nameof(Get), new { id = nuevoProducto.Id }, nuevoProducto);
+            }
+            catch (Exception ex)
+            {
+                return BadRequest(new ResponseDTO { Success = false, Message = ex.Message });
+            }
         }
 
         [HttpPut("{id}")]
-        public async Task<ActionResult> Put(int id, Producto producto)
+        public async Task<ActionResult> Put(int id, [FromBody] ActualizarProductoDTO dto)
         {
-            if (id != producto.Id)
-                return BadRequest();
-
-            _context.Entry(producto).State = EntityState.Modified;
-            await _context.SaveChangesAsync();
-
-            return NoContent();
+            try
+            {
+                await _productoService.ActualizarAsync(id, dto);
+                return NoContent();
+            }
+            catch (Exception ex)
+            {
+                return BadRequest(new ResponseDTO { Success = false, Message = ex.Message });
+            }
         }
 
         [HttpDelete("{id}")]
         public async Task<ActionResult> Delete(int id)
         {
-            var producto = await _context.Productos.FindAsync(id);
-
-            if (producto == null)
-                return NotFound();
-
-            _context.Productos.Remove(producto);
-            await _context.SaveChangesAsync();
-
-            return NoContent();
+            try
+            {
+                await _productoService.EliminarAsync(id);
+                return NoContent();
+            }
+            catch (Exception ex)
+            {
+                return BadRequest(new ResponseDTO { Success = false, Message = ex.Message });
+            }
         }
     }
 }
