@@ -92,7 +92,7 @@ namespace Gestion_de_productos.Data
 
             // ========== Configuración de CarritoItem ==========
             modelBuilder.Entity<CarritoItem>()
-                .HasKey(ci => ci.ProductoId);
+                .HasKey(ci => ci.Id);
 
             modelBuilder.Entity<CarritoItem>()
                 .Property(ci => ci.Cantidad)
@@ -102,7 +102,7 @@ namespace Gestion_de_productos.Data
             modelBuilder.Entity<CarritoItem>()
                 .HasOne(ci => ci.Producto)
                 .WithMany()
-                .HasForeignKey(ci => ci.Id)
+                .HasForeignKey(ci => ci.ProductoId)
                 .OnDelete(DeleteBehavior.Restrict);
 
             // ========== Configuración de Categoria ==========

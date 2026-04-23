@@ -73,8 +73,36 @@ namespace Gestion_de_productos.Services
             }).ToList();
         }
 
+        public async Task<IEnumerable<ProductoDTO>> BuscarPorNombreAsync(string termino)
+        {
+            termino = termino.Trim();
+
+            var productos = await _context.Productos
+                .Include(p => p.Categoria)
+                .Where(p => p.Nombre.Contains(termino))
+                .ToListAsync();
+
+            return productos.Select(p => new ProductoDTO
+            {
+                Id = p.Id,
+                Nombre = p.Nombre,
+                Descripcion = p.Descripcion,
+                Precio = p.Precio,
+                Stock = p.Stock,
+                CategoriaId = p.CategoriaId,
+                CategoriaNombre = p.Categoria?.Nombre ?? string.Empty
+            }).ToList();
+        }
+
         public async Task<ProductoDTO> CrearAsync(CrearProductoDTO dto)
         {
+            if (string.IsNullOrWhiteSpace(dto.Nombre))
+                throw new Exception("El nombre del producto es obligatorio");
+            if (dto.Precio <= 0)
+                throw new Exception("El precio debe ser mayor a 0");
+            if (dto.Stock < 0)
+                throw new Exception("El stock no puede ser negativo");
+
             // Verificar que la categoría existe
             var categoriaExiste = await _context.Categorias.AnyAsync(c => c.Id == dto.CategoriaId);
             if (!categoriaExiste)
@@ -111,6 +139,13 @@ namespace Gestion_de_productos.Services
             var producto = await _context.Productos.FirstOrDefaultAsync(p => p.Id == id);
             if (producto == null)
                 throw new Exception($"Producto con ID {id} no encontrado");
+
+            if (string.IsNullOrWhiteSpace(dto.Nombre))
+                throw new Exception("El nombre del producto es obligatorio");
+            if (dto.Precio <= 0)
+                throw new Exception("El precio debe ser mayor a 0");
+            if (dto.Stock < 0)
+                throw new Exception("El stock no puede ser negativo");
 
             producto.Nombre = dto.Nombre;
             producto.Descripcion = dto.Descripcion;

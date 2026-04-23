@@ -38,8 +38,23 @@ namespace Gestion_de_productos.Services
             };
         }
 
+        public async Task<bool> ExistePorNombreAsync(string nombre, int? excluirId = null)
+        {
+            var nombreNormalizado = nombre.Trim().ToLower();
+
+            return await _context.Roles
+                .AnyAsync(r => r.Nombre.ToLower() == nombreNormalizado && (!excluirId.HasValue || r.Id != excluirId.Value));
+        }
+
         public async Task<RolDTO> CrearAsync(CrearRolDTO dto)
         {
+            if (string.IsNullOrWhiteSpace(dto.Nombre))
+                throw new Exception("El nombre del rol es obligatorio");
+
+            var existe = await ExistePorNombreAsync(dto.Nombre);
+            if (existe)
+                throw new Exception("Ya existe un rol con ese nombre");
+
             var rol = new Rol
             {
                 Nombre = dto.Nombre
@@ -61,6 +76,13 @@ namespace Gestion_de_productos.Services
             if (rol == null)
                 throw new Exception($"Rol con ID {id} no encontrado");
 
+            if (string.IsNullOrWhiteSpace(dto.Nombre))
+                throw new Exception("El nombre del rol es obligatorio");
+
+            var existe = await ExistePorNombreAsync(dto.Nombre, id);
+            if (existe)
+                throw new Exception("Ya existe un rol con ese nombre");
+
             rol.Nombre = dto.Nombre;
             _context.Roles.Update(rol);
             await _context.SaveChangesAsync();
@@ -73,6 +95,10 @@ namespace Gestion_de_productos.Services
             var rol = await _context.Roles.FirstOrDefaultAsync(r => r.Id == id);
             if (rol == null)
                 throw new Exception($"Rol con ID {id} no encontrado");
+
+            var tieneUsuariosAsociados = await _context.Usuarios.AnyAsync(u => u.RolId == id);
+            if (tieneUsuariosAsociados)
+                throw new Exception("No se puede eliminar el rol porque tiene usuarios asociados");
 
             _context.Roles.Remove(rol);
             await _context.SaveChangesAsync();
