@@ -4,7 +4,6 @@ import { validateNonNegativeInteger, validatePositiveNumber, validateRequiredTex
 import "./App.css";
 
 const TABS = ["catalogo", "categorias", "carrito", "pedidos"];
-
 const ESTADOS_PEDIDO = ["Pendiente", "Pagado", "Enviado", "Cancelado", "Completado"];
 
 function App() {
@@ -59,9 +58,8 @@ function App() {
       setPedidos(peds);
       setPagos(pgs);
       setEnvios(envs);
-      if (usrs.length > 0) {
-        setUsuarioId(String(usrs[0].id));
-      }
+
+      if (usrs.length > 0) setUsuarioId(String(usrs[0].id));
     } catch (error) {
       mostrarMensaje("error", `No se pudo inicializar: ${error.message}`);
     }
@@ -69,21 +67,22 @@ function App() {
 
   function mostrarMensaje(tipo, texto) {
     setMensaje({ tipo, texto });
-    setTimeout(() => setMensaje({ tipo: "", texto: "" }), 3000);
+    setTimeout(() => setMensaje({ tipo: "", texto: "" }), 3200);
   }
 
   async function recargarProductos() {
     const query = new URLSearchParams();
     if (filtroNombre.trim()) query.set("nombre", filtroNombre.trim());
     if (filtroCategoria) query.set("categoriaId", filtroCategoria);
-    const suffix = query.toString() ? `?${query}` : "";
 
+    const suffix = query.toString() ? `?${query.toString()}` : "";
     const data = await api.productos.listar(suffix);
     setProductos(data);
   }
 
   async function onSubmitCategoria(e) {
     e.preventDefault();
+
     if (!validateRequiredText(formCategoria.nombre, 3, 50)) {
       mostrarMensaje("error", "Nombre de categoría inválido (3-50 caracteres)");
       return;
@@ -97,6 +96,7 @@ function App() {
         await api.categorias.crear({ nombre: formCategoria.nombre });
         mostrarMensaje("exito", "Categoría creada");
       }
+
       setFormCategoria({ id: null, nombre: "" });
       setCategorias(await api.categorias.listar());
     } catch (error) {
@@ -106,6 +106,7 @@ function App() {
 
   async function onSubmitProducto(e) {
     e.preventDefault();
+
     if (!validateRequiredText(formProducto.nombre, 3, 100)) {
       mostrarMensaje("error", "Nombre de producto inválido");
       return;
@@ -147,6 +148,7 @@ function App() {
 
   async function cargarCarrito() {
     if (!usuarioId) return;
+
     try {
       const data = await api.carrito.obtener(Number(usuarioId));
       setCarrito(data);
@@ -158,6 +160,7 @@ function App() {
 
   async function agregarItemCarrito(e) {
     e.preventDefault();
+
     if (!usuarioId) return;
     if (!itemCarrito.productoId || !validateNonNegativeInteger(itemCarrito.cantidad) || Number(itemCarrito.cantidad) < 1) {
       mostrarMensaje("error", "Selecciona producto y cantidad válida");
@@ -169,6 +172,7 @@ function App() {
         productoId: Number(itemCarrito.productoId),
         cantidad: Number(itemCarrito.cantidad),
       });
+
       setCarrito(data);
       mostrarMensaje("exito", "Producto agregado al carrito");
     } catch (error) {
@@ -178,6 +182,7 @@ function App() {
 
   async function crearPedidoDesdeCarrito() {
     if (!usuarioId) return;
+
     try {
       await api.pedidos.crearDesdeCarrito(Number(usuarioId));
       mostrarMensaje("exito", "Pedido generado desde carrito");
@@ -197,13 +202,48 @@ function App() {
     return { items: carrito.items.length, total };
   }, [carrito]);
 
+  const totalStock = useMemo(() => productos.reduce((acc, p) => acc + Number(p.stock), 0), [productos]);
+
   return (
-    <main className="layout">
-      <header className="hero">
-        <p className="tag">Jardín ecommerce</p>
-        <h1>Panel de gestión • Plantas, cactus y suculentas</h1>
-        <p className="sub">Inspirado en tiendas online de suculentas: paleta verde/salvia, cards limpias y estética orgánica.</p>
+    <main className="app-shell">
+      <header className="hero-wrap">
+        <div className="hero-copy">
+          <p className="pill">CACTUS NEST STYLE</p>
+          <h1>Espinas Sunchales · Frontend Ecommerce</h1>
+          <p>
+            Rediseño visual inspirado en una tienda de suculentas: bloques suaves, tarjetas limpias,
+            protagonismo de producto y tipografía editorial.
+          </p>
+          <div className="hero-actions">
+            <button onClick={() => setTabActiva("catalogo")}>Explorar catálogo</button>
+            <button className="ghost" onClick={() => setTabActiva("carrito")}>Ver carrito</button>
+          </div>
+        </div>
+        <div className="hero-stats">
+          <article>
+            <h3>{productos.length}</h3>
+            <p>Productos activos</p>
+          </article>
+          <article>
+            <h3>{categorias.length}</h3>
+            <p>Categorías</p>
+          </article>
+          <article>
+            <h3>{pedidos.length}</h3>
+            <p>Pedidos</p>
+          </article>
+          <article>
+            <h3>{totalStock}</h3>
+            <p>Stock total</p>
+          </article>
+        </div>
       </header>
+
+      <section className="value-strip">
+        <div><strong>Cultivo sostenible</strong><span>Selección cuidada y catálogo curado.</span></div>
+        <div><strong>Envío confiable</strong><span>Control de estado de pedido y envío.</span></div>
+        <div><strong>Soporte experto</strong><span>Administración completa de productos.</span></div>
+      </section>
 
       <nav className="tabs">
         {TABS.map((tab) => (
@@ -217,15 +257,21 @@ function App() {
 
       {tabActiva === "catalogo" && (
         <section className="panel">
-          <h2>Catálogo de productos</h2>
-          <form className="grid" onSubmit={onSubmitProducto}>
+          <div className="panel-head">
+            <h2>Catálogo de productos</h2>
+            <p>Gestiona fichas de producto con estética de ecommerce y filtros rápidos.</p>
+          </div>
+
+          <form className="grid form-grid" onSubmit={onSubmitProducto}>
             <input placeholder="Nombre" value={formProducto.nombre} onChange={(e) => setFormProducto({ ...formProducto, nombre: e.target.value })} />
             <input placeholder="Descripción" value={formProducto.descripcion} onChange={(e) => setFormProducto({ ...formProducto, descripcion: e.target.value })} />
             <input type="number" step="0.01" placeholder="Precio" value={formProducto.precio} onChange={(e) => setFormProducto({ ...formProducto, precio: e.target.value })} />
             <input type="number" step="1" placeholder="Stock" value={formProducto.stock} onChange={(e) => setFormProducto({ ...formProducto, stock: e.target.value })} />
             <select value={formProducto.categoriaId} onChange={(e) => setFormProducto({ ...formProducto, categoriaId: e.target.value })}>
               <option value="">Seleccionar categoría</option>
-              {categorias.map((c) => <option key={c.id} value={c.id}>{c.nombre}</option>)}
+              {categorias.map((c) => (
+                <option key={c.id} value={c.id}>{c.nombre}</option>
+              ))}
             </select>
             <div className="actions">
               <button type="submit">{formProducto.id ? "Actualizar" : "Crear"}</button>
@@ -237,48 +283,64 @@ function App() {
             <input placeholder="Filtrar por nombre" value={filtroNombre} onChange={(e) => setFiltroNombre(e.target.value)} />
             <select value={filtroCategoria} onChange={(e) => setFiltroCategoria(e.target.value)}>
               <option value="">Todas las categorías</option>
-              {categorias.map((c) => <option key={c.id} value={c.id}>{c.nombre}</option>)}
+              {categorias.map((c) => (
+                <option key={c.id} value={c.id}>{c.nombre}</option>
+              ))}
             </select>
             <button onClick={recargarProductos}>Aplicar filtros</button>
           </div>
 
-          <table>
-            <thead><tr><th>Producto</th><th>Categoría</th><th>Precio</th><th>Stock</th><th /></tr></thead>
-            <tbody>
-              {productos.map((p) => (
-                <tr key={p.id}>
-                  <td><strong>{p.nombre}</strong><br />{p.descripcion}</td>
-                  <td>{p.categoriaNombre}</td>
-                  <td>${Number(p.precio).toFixed(2)}</td>
-                  <td>{p.stock}</td>
-                  <td className="row-actions">
-                    <button onClick={() => setFormProducto({ id: p.id, nombre: p.nombre, descripcion: p.descripcion, precio: p.precio, stock: p.stock, categoriaId: p.categoriaId })}>Editar</button>
-                    <button className="danger" onClick={async () => { await api.productos.eliminar(p.id); await recargarProductos(); mostrarMensaje("exito", "Producto eliminado"); }}>Eliminar</button>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+          <div className="product-grid">
+            {productos.map((p) => (
+              <article className="product-card" key={p.id}>
+                <div className="product-media">🌵</div>
+                <p className="product-category">{p.categoriaNombre}</p>
+                <h3>{p.nombre}</h3>
+                <p className="product-description">{p.descripcion || "Sin descripción"}</p>
+                <div className="product-meta">
+                  <span>${Number(p.precio).toFixed(2)}</span>
+                  <span>Stock: {p.stock}</span>
+                </div>
+                <div className="row-actions">
+                  <button onClick={() => setFormProducto({ id: p.id, nombre: p.nombre, descripcion: p.descripcion, precio: p.precio, stock: p.stock, categoriaId: p.categoriaId })}>Editar</button>
+                  <button
+                    className="danger"
+                    onClick={async () => {
+                      await api.productos.eliminar(p.id);
+                      await recargarProductos();
+                      mostrarMensaje("exito", "Producto eliminado");
+                    }}
+                  >
+                    Eliminar
+                  </button>
+                </div>
+              </article>
+            ))}
+          </div>
         </section>
       )}
 
       {tabActiva === "categorias" && (
         <section className="panel">
-          <h2>Categorías, usuarios y roles</h2>
-          <form className="grid" onSubmit={onSubmitCategoria}>
+          <div className="panel-head">
+            <h2>Categorías, usuarios y roles</h2>
+          </div>
+          <form className="grid category-form" onSubmit={onSubmitCategoria}>
             <input placeholder="Nombre categoría" value={formCategoria.nombre} onChange={(e) => setFormCategoria({ ...formCategoria, nombre: e.target.value })} />
             <div className="actions"><button type="submit">{formCategoria.id ? "Actualizar" : "Crear"}</button></div>
           </form>
 
-          <div className="cards">
+          <div className="cards two-col">
             <article>
               <h3>Categorías</h3>
               {categorias.map((c) => (
                 <div key={c.id} className="list-row">
                   <span>{c.nombre}</span>
-                  <div>
+                  <div className="row-actions">
                     <button onClick={() => setFormCategoria({ id: c.id, nombre: c.nombre })}>Editar</button>
-                    <button className="danger" onClick={async () => { await api.categorias.eliminar(c.id); setCategorias(await api.categorias.listar()); }}>Eliminar</button>
+                    <button className="danger" onClick={async () => { await api.categorias.eliminar(c.id); setCategorias(await api.categorias.listar()); }}>
+                      Eliminar
+                    </button>
                   </div>
                 </div>
               ))}
@@ -295,7 +357,10 @@ function App() {
 
       {tabActiva === "carrito" && (
         <section className="panel">
-          <h2>Carrito por usuario</h2>
+          <div className="panel-head">
+            <h2>Carrito por usuario</h2>
+          </div>
+
           <div className="filters">
             <select value={usuarioId} onChange={(e) => setUsuarioId(e.target.value)}>
               <option value="">Selecciona usuario</option>
@@ -305,7 +370,7 @@ function App() {
             <button className="ghost" onClick={async () => { await api.carrito.vaciar(Number(usuarioId)); await cargarCarrito(); }}>Vaciar</button>
           </div>
 
-          <form className="grid" onSubmit={agregarItemCarrito}>
+          <form className="grid category-form" onSubmit={agregarItemCarrito}>
             <select value={itemCarrito.productoId} onChange={(e) => setItemCarrito({ ...itemCarrito, productoId: e.target.value })}>
               <option value="">Producto</option>
               {productos.map((p) => <option key={p.id} value={p.id}>{p.nombre}</option>)}
@@ -314,12 +379,12 @@ function App() {
             <div className="actions"><button type="submit">Agregar al carrito</button></div>
           </form>
 
-          <p><strong>Items:</strong> {resumenCarrito.items} · <strong>Total:</strong> ${resumenCarrito.total.toFixed(2)}</p>
+          <p className="summary-row"><strong>Items:</strong> {resumenCarrito.items} · <strong>Total:</strong> ${resumenCarrito.total.toFixed(2)}</p>
 
           {carrito?.items?.map((i) => (
             <div key={i.id} className="list-row">
               <span>{i.productoNombre} x{i.cantidad}</span>
-              <div>
+              <div className="row-actions">
                 <button onClick={async () => { await api.carrito.actualizarCantidad(Number(usuarioId), i.productoId, i.cantidad + 1); await cargarCarrito(); }}>+1</button>
                 <button className="danger" onClick={async () => { await api.carrito.quitarItem(Number(usuarioId), i.productoId); await cargarCarrito(); }}>Quitar</button>
               </div>
@@ -332,17 +397,22 @@ function App() {
 
       {tabActiva === "pedidos" && (
         <section className="panel">
-          <h2>Pedidos, pagos y envíos</h2>
-          <div className="cards three">
+          <div className="panel-head">
+            <h2>Pedidos, pagos y envíos</h2>
+          </div>
+          <div className="cards three-col">
             <article>
               <h3>Pedidos</h3>
               {pedidos.map((p) => (
                 <div key={p.id} className="list-row">
                   <span>#{p.id} · U{p.usuarioId} · ${p.total.toFixed(2)}</span>
-                  <select value={p.estado} onChange={async (e) => {
-                    await api.pedidos.actualizarEstado(p.id, e.target.value);
-                    setPedidos(await api.pedidos.listar());
-                  }}>
+                  <select
+                    value={p.estado}
+                    onChange={async (e) => {
+                      await api.pedidos.actualizarEstado(p.id, e.target.value);
+                      setPedidos(await api.pedidos.listar());
+                    }}
+                  >
                     {ESTADOS_PEDIDO.map((estado) => <option key={estado}>{estado}</option>)}
                   </select>
                 </div>
