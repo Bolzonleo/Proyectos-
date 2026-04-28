@@ -1,7 +1,7 @@
 using Microsoft.EntityFrameworkCore;
-using Gestion_de_productos.Data;
 using Gestion_de_productos.Services;
 using Gestion_de_productos.Services.Interfaces;
+using Gestion_de_productos.Data.Context;
 
 var builder = WebApplication.CreateBuilder(args);
 
