@@ -1,78 +1,95 @@
-using Gestion_de_productos.Data.Context;
-using Gestion_de_productos.Services.Interfaces;
+﻿using Gestion_de_productos.Services.Interfaces;
 using Gestion_de_productos.Shared.DTOs;
 using Gestion_de_productos.Shared.Entities;
-using Microsoft.EntityFrameworkCore;
 
 namespace Gestion_de_productos.Services
 {
     public class PedidoDetalleService : IPedidoDetalleService
     {
-        private readonly AppDbContext _context;
+        private readonly IPedidoDetalleRepository _detalleRepo;
+        private readonly IPedidoRepository _pedidoRepo;
+        private readonly IProductoRepository _productoRepo;
 
-        public PedidoDetalleService(AppDbContext context)
+        public PedidoDetalleService(
+            IPedidoDetalleRepository detalleRepo,
+            IPedidoRepository pedidoRepo,
+            IProductoRepository productoRepo)
         {
-            _context = context;
+            _detalleRepo = detalleRepo;
+            _pedidoRepo = pedidoRepo;
+            _productoRepo = productoRepo;
         }
 
+        // =====================================
         public async Task<IEnumerable<PedidoDetalleDTO>> ObtenerPorPedidoIdAsync(int pedidoId)
         {
-            var detalles = await _context.PedidoDetalles
-                .Include(d => d.Producto)
-                .Where(d => d.PedidoId == pedidoId)
-                .ToListAsync();
+            var detalles = await _detalleRepo.ObtenerPorPedidoIdAsync(pedidoId);
 
-            return detalles.Select(Mapear).ToList();
+            return detalles.Select(Mapear);
         }
 
+        // =====================================
         public async Task<PedidoDetalleDTO> AgregarDetalleAsync(int pedidoId, CrearPedidoDetalleDTO dto)
         {
             if (dto.Cantidad <= 0)
                 throw new Exception("La cantidad debe ser mayor a 0");
 
-            var pedido = await _context.Pedidos.FirstOrDefaultAsync(p => p.Id == pedidoId);
+            var pedido = await _pedidoRepo.ObtenerPorIdAsync(pedidoId);
             if (pedido == null)
                 throw new Exception("Pedido no encontrado");
 
-            var producto = await _context.Productos.FirstOrDefaultAsync(p => p.Id == dto.ProductoId);
+            var producto = await _productoRepo.ObtenerPorIdAsync(dto.ProductoId);
             if (producto == null)
                 throw new Exception("Producto no encontrado");
+
+            var precio = dto.PrecioUnitario > 0
+                ? dto.PrecioUnitario
+                : producto.Precio;
 
             var detalle = new PedidoDetalle
             {
                 PedidoId = pedidoId,
                 ProductoId = dto.ProductoId,
                 Cantidad = dto.Cantidad,
-                PrecioUnitario = dto.PrecioUnitario > 0 ? (double)dto.PrecioUnitario : (double)producto.Precio
+                PrecioUnitario = (double)precio
             };
 
-            _context.PedidoDetalles.Add(detalle);
-            pedido.Total += detalle.PrecioUnitario * detalle.Cantidad;
-            await _context.SaveChangesAsync();
+            await _detalleRepo.AgregarAsync(detalle);
+
+            // 🔥 recalcular total (mejor que sumar/restar incremental)
+            pedido.Total += (double)(dto.Cantidad * precio);
+
+            await _pedidoRepo.GuardarCambiosAsync();
 
             detalle.Producto = producto;
+
             return Mapear(detalle);
         }
 
-        public async Task<bool> EliminarDetalleAsync(int id)
+        // =====================================
+        public async Task EliminarDetalleAsync(int id)
         {
-            var detalle = await _context.PedidoDetalles.FirstOrDefaultAsync(d => d.Id == id);
+            var detalle = await _detalleRepo.ObtenerPorIdAsync(id);
+
             if (detalle == null)
                 throw new Exception("Detalle no encontrado");
 
-            var pedido = await _context.Pedidos.FirstOrDefaultAsync(p => p.Id == detalle.PedidoId);
+            var pedido = await _pedidoRepo.ObtenerPorIdAsync(detalle.PedidoId);
+
             if (pedido != null)
             {
                 pedido.Total -= detalle.PrecioUnitario * detalle.Cantidad;
+
                 if (pedido.Total < 0)
                     pedido.Total = 0;
             }
 
-            _context.PedidoDetalles.Remove(detalle);
-            await _context.SaveChangesAsync();
-            return true;
+            _detalleRepo.Eliminar(detalle);
+
+            await _pedidoRepo.GuardarCambiosAsync();
         }
 
+        // =====================================
         private static PedidoDetalleDTO Mapear(PedidoDetalle d)
         {
             return new PedidoDetalleDTO

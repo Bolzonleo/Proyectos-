@@ -2,6 +2,7 @@ using Microsoft.EntityFrameworkCore;
 using Gestion_de_productos.Services;
 using Gestion_de_productos.Services.Interfaces;
 using Gestion_de_productos.Data.Context;
+using Gestion_de_productos.Data.Repositories;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -20,6 +21,24 @@ builder.Services.AddScoped<IPedidoDetalleService, PedidoDetalleService>();
 builder.Services.AddScoped<IPagoService, PagoService>();
 builder.Services.AddScoped<IEnvioService, EnvioService>();
 builder.Services.AddScoped<IImagenProductoService, ImagenProductoService>();
+
+// Add inyectores de repositorios
+
+builder.Services.AddScoped<IProductoRepository, ProductoRepository>();
+
+builder.Services.AddScoped<ICategoriaRepository, CategoriaRepository>();
+/*
+builder.Services.AddScoped<IRolRepository, RolRepository>();
+builder.Services.AddScoped<IUsuarioRepository, UsuarioRepository>();
+builder.Services.AddScoped<ICarritoRepository, CarritoRepository>();
+builder.Services.AddScoped<IPedidoRepository, PedidoRepository>();
+builder.Services.AddScoped<IPedidoDetalleRepository, PedidoDetalleRepository>();
+builder.Services.AddScoped<IPagoRepository, PagoRepository>();  
+builder.Services.AddScoped<IEnvioRepository, EnvioRepository>();
+builder.Services.AddScoped<IImagenProductoRepository, ImagenProductoRepository>();
+*/
+
+
 
 // Learn more about configuring Swagger/OpenAPI at https://aka.ms/aspnetcore/swashbuckle
 builder.Services.AddEndpointsApiExplorer();

@@ -173,8 +173,8 @@ namespace Gestion_de_productos.Data.Context
 
             modelBuilder.Entity<Pedido>()
                 .Property(p => p.Estado)
-                .IsRequired()
-                .HasMaxLength(50);
+                .HasConversion<int>() // guarda como número en DB
+                .IsRequired();
 
             // Relación Pedido - PedidoDetalle (One to Many)
             modelBuilder.Entity<Pedido>()

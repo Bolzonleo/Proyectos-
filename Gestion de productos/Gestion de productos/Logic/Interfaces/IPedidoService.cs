@@ -1,14 +1,10 @@
 using Gestion_de_productos.Shared.DTOs;
+using Gestion_de_productos.Shared.Enums;
 
-namespace Gestion_de_productos.Services.Interfaces
+public interface IPedidoService
 {
-    public interface IPedidoService
-    {
-        Task<IEnumerable<PedidoDTO>> ObtenerTodosAsync();
-        Task<PedidoDTO> ObtenerPorIdAsync(int id);
-        Task<PedidoDTO> CrearAsync(CrearPedidoDTO dto);
-        Task<PedidoDTO> CrearDesdeCarritoAsync(int usuarioId);
-        Task<bool> ActualizarEstadoAsync(int id, ActualizarPedidoDTO dto);
-        Task<bool> EliminarAsync(int id);
-    }
+    Task<PedidoDTO> CrearDesdeCarritoAsync(int usuarioId);
+
+    Task<PedidoDTO> ObtenerPorIdAsync(int id);
+    Task CambiarEstadoAsync(int pedidoId, EstadoPedido nuevoEstado);
 }

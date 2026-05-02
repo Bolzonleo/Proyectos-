@@ -7,6 +7,8 @@
         public DateTime Fecha { get; set; }
         public double Total { get; set; }
         public string Estado { get; set; } = string.Empty;
+
+        public List<PedidoDetalleDTO> Detalles { get; set; } = new();
     }
 
     public class CrearPedidoDTO

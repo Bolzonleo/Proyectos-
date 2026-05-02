@@ -1,77 +1,86 @@
-using Gestion_de_productos.Data.Context;
-using Gestion_de_productos.Models;
 using Gestion_de_productos.Services.Interfaces;
 using Gestion_de_productos.Shared.DTOs;
 using Gestion_de_productos.Shared.Entities;
-using Microsoft.EntityFrameworkCore;
 
 namespace Gestion_de_productos.Services
 {
     public class CarritoService : ICarritoService
     {
-        private readonly AppDbContext _context;
+        private readonly ICarritoRepository _carritoRepo;
+        private readonly ICarritoItemRepository _itemRepo;
+        private readonly IProductoRepository _productoRepo;
+        private readonly IUsuarioRepository _usuarioRepo;
 
-        public CarritoService(AppDbContext context)
+        public CarritoService(
+            ICarritoRepository carritoRepo,
+            ICarritoItemRepository itemRepo,
+            IProductoRepository productoRepo,
+            IUsuarioRepository usuarioRepo)
         {
-            _context = context;
+            _carritoRepo = carritoRepo;
+            _itemRepo = itemRepo;
+            _productoRepo = productoRepo;
+            _usuarioRepo = usuarioRepo;
         }
 
+        // ==========================
+        // GET CARRITO
+        // ==========================
         public async Task<CarritoDTO> ObtenerPorUsuarioIdAsync(int usuarioId)
         {
-            var carrito = await _context.Carritos
-                .Include(c => c.Items)
-                .ThenInclude(i => i.Producto)
-                .FirstOrDefaultAsync(c => c.UsuarioId == usuarioId);
+            var carrito = await _carritoRepo.ObtenerConItemsAsync(usuarioId);
 
             if (carrito == null)
             {
-                await CrearParaUsuarioAsync(usuarioId);
-                carrito = await _context.Carritos
-                    .Include(c => c.Items)
-                    .ThenInclude(i => i.Producto)
-                    .FirstAsync(c => c.UsuarioId == usuarioId);
+                carrito = await CrearInterno(usuarioId);
             }
 
             return Mapear(carrito);
         }
 
+        // ==========================
+        // CREAR
+        // ==========================
         public async Task<CarritoDTO> CrearParaUsuarioAsync(int usuarioId)
         {
-            var usuarioExiste = await _context.Usuarios.AnyAsync(u => u.Id == usuarioId);
-            if (!usuarioExiste)
-                throw new Exception("El usuario no existe");
-
-            var carritoExistente = await _context.Carritos.FirstOrDefaultAsync(c => c.UsuarioId == usuarioId);
-            if (carritoExistente != null)
-                return Mapear(carritoExistente);
-
-            var carrito = new Carrito { UsuarioId = usuarioId };
-            _context.Carritos.Add(carrito);
-            await _context.SaveChangesAsync();
-
+            var carrito = await CrearInterno(usuarioId);
             return Mapear(carrito);
         }
 
+        private async Task<Carrito> CrearInterno(int usuarioId)
+        {
+            var usuarioExiste = await _usuarioRepo.ExisteAsync(usuarioId);
+            if (!usuarioExiste)
+                throw new Exception("El usuario no existe");
+
+            var existente = await _carritoRepo.ObtenerPorUsuarioIdAsync(usuarioId);
+            if (existente != null)
+                return existente;
+
+            var carrito = new Carrito { UsuarioId = usuarioId };
+
+            await _carritoRepo.CrearAsync(carrito);
+
+            return carrito;
+        }
+
+        // ==========================
+        // AGREGAR ITEM
+        // ==========================
         public async Task<CarritoDTO> AgregarItemAsync(int usuarioId, AgregarAlCarritoDTO dto)
         {
             if (dto.Cantidad <= 0)
                 throw new Exception("La cantidad debe ser mayor a 0");
 
-            var producto = await _context.Productos.FirstOrDefaultAsync(p => p.Id == dto.ProductoId);
+            var producto = await _productoRepo.ObtenerPorIdAsync(dto.ProductoId);
             if (producto == null)
                 throw new Exception("El producto no existe");
 
-            var carrito = await _context.Carritos
-                .Include(c => c.Items)
-                .FirstOrDefaultAsync(c => c.UsuarioId == usuarioId);
-
-            if (carrito == null)
-            {
-                await CrearParaUsuarioAsync(usuarioId);
-                carrito = await _context.Carritos.Include(c => c.Items).FirstAsync(c => c.UsuarioId == usuarioId);
-            }
+            var carrito = await _carritoRepo.ObtenerConItemsAsync(usuarioId)
+                         ?? await CrearInterno(usuarioId);
 
             var item = carrito.Items.FirstOrDefault(i => i.ProductoId == dto.ProductoId);
+
             if (item == null)
             {
                 item = new CarritoItem
@@ -80,74 +89,89 @@ namespace Gestion_de_productos.Services
                     ProductoId = dto.ProductoId,
                     Cantidad = dto.Cantidad
                 };
-                _context.CarritoItems.Add(item);
+
+                await _itemRepo.AgregarAsync(item);
             }
             else
             {
                 item.Cantidad += dto.Cantidad;
-                _context.CarritoItems.Update(item);
+                _itemRepo.Actualizar(item);
             }
 
-            await _context.SaveChangesAsync();
+            await _carritoRepo.GuardarCambiosAsync();
+
             return await ObtenerPorUsuarioIdAsync(usuarioId);
         }
 
+        // ==========================
+        // ACTUALIZAR CANTIDAD
+        // ==========================
         public async Task<CarritoDTO> ActualizarCantidadAsync(int usuarioId, int productoId, int cantidad)
         {
             if (cantidad <= 0)
                 throw new Exception("La cantidad debe ser mayor a 0");
 
-            var carrito = await _context.Carritos
-                .Include(c => c.Items)
-                .FirstOrDefaultAsync(c => c.UsuarioId == usuarioId);
+            var carrito = await _carritoRepo.ObtenerConItemsAsync(usuarioId);
 
             if (carrito == null)
                 throw new Exception("No existe carrito para el usuario");
 
             var item = carrito.Items.FirstOrDefault(i => i.ProductoId == productoId);
+
             if (item == null)
                 throw new Exception("El producto no existe en el carrito");
 
             item.Cantidad = cantidad;
-            _context.CarritoItems.Update(item);
-            await _context.SaveChangesAsync();
+
+            _itemRepo.Actualizar(item);
+
+            await _carritoRepo.GuardarCambiosAsync();
 
             return await ObtenerPorUsuarioIdAsync(usuarioId);
         }
 
+        // ==========================
+        // QUITAR ITEM
+        // ==========================
         public async Task<bool> QuitarItemAsync(int usuarioId, int productoId)
         {
-            var carrito = await _context.Carritos
-                .Include(c => c.Items)
-                .FirstOrDefaultAsync(c => c.UsuarioId == usuarioId);
+            var carrito = await _carritoRepo.ObtenerConItemsAsync(usuarioId);
 
             if (carrito == null)
                 throw new Exception("No existe carrito para el usuario");
 
             var item = carrito.Items.FirstOrDefault(i => i.ProductoId == productoId);
+
             if (item == null)
                 throw new Exception("El producto no existe en el carrito");
 
-            _context.CarritoItems.Remove(item);
-            await _context.SaveChangesAsync();
+            _itemRepo.Eliminar(item);
+
+            await _carritoRepo.GuardarCambiosAsync();
 
             return true;
         }
 
+        // ==========================
+        // VACIAR
+        // ==========================
         public async Task<bool> VaciarAsync(int usuarioId)
         {
-            var carrito = await _context.Carritos
-                .Include(c => c.Items)
-                .FirstOrDefaultAsync(c => c.UsuarioId == usuarioId);
+            var carrito = await _carritoRepo.ObtenerConItemsAsync(usuarioId);
 
             if (carrito == null)
                 throw new Exception("No existe carrito para el usuario");
 
-            _context.CarritoItems.RemoveRange(carrito.Items);
-            await _context.SaveChangesAsync();
+            _itemRepo.EliminarRango(carrito.Items);
+
+            await _carritoRepo.GuardarCambiosAsync();
+
             return true;
         }
 
+        // ==========================
+        // MAPPER
+        // ==========================
         private CarritoDTO Mapear(Carrito carrito)
         {
             return new CarritoDTO

@@ -1,6 +1,7 @@
 using Gestion_de_productos.DTOs;
 using Gestion_de_productos.Services.Interfaces;
 using Gestion_de_productos.Shared.DTOs;
+using Gestion_de_productos.Shared.Enums;
 using Microsoft.AspNetCore.Mvc;
 
 namespace Gestion_de_productos.API.Controllers
@@ -49,10 +50,17 @@ namespace Gestion_de_productos.API.Controllers
         }
 
         [HttpPatch("{id}/estado")]
-        public async Task<ActionResult> ActualizarEstado(int id, ActualizarPedidoDTO dto)
+        public async Task<IActionResult> CambiarEstado(int id, [FromQuery] EstadoPedido estado)
         {
-            try { await _pedidoService.ActualizarEstadoAsync(id, dto); return NoContent(); }
-            catch (Exception ex) { return BadRequest(new ResponseDTO { Success = false, Message = ex.Message }); }
+            try
+            {
+                await _pedidoService.CambiarEstadoAsync(id, estado);
+                return NoContent();
+            }
+            catch (Exception ex)
+            {
+                return BadRequest(new { message = ex.Message });
+            }
         }
 
         [HttpDelete("{id}")]

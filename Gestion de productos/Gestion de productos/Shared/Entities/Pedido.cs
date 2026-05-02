@@ -1,4 +1,6 @@
-﻿namespace Gestion_de_productos.Shared.Entities
+﻿using Gestion_de_productos.Shared.Enums;
+
+namespace Gestion_de_productos.Shared.Entities
 {
     public class Pedido
     {
@@ -6,7 +8,7 @@
         public int UsuarioId { get; set; }
         public DateTime Fecha { get; set; }
         public double Total { get; set; }
-        public string Estado { get; set; } = string.Empty;
+        public EstadoPedido Estado { get; set; }
         //  Relación con Usuario
         public Usuario Usuario { get; set; }
         

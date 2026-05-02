@@ -1,112 +1,85 @@
-﻿using Gestion_de_productos.Data.Context;
-using Gestion_de_productos.Models;
-using Gestion_de_productos.Services.Interfaces;
+﻿using Gestion_de_productos.Services.Interfaces;
 using Gestion_de_productos.Shared.DTOs;
-using Microsoft.EntityFrameworkCore;
+using Gestion_de_productos.Shared.Entities;
+
 
 namespace Gestion_de_productos.Services
 {
     public class ProductoService : IProductoService
     {
-        private readonly AppDbContext _context;
+        private readonly IProductoRepository _repo;
 
-        public ProductoService(AppDbContext context)
+        public ProductoService(
+            IProductoRepository repo)
         {
-            _context = context;
+            _repo = repo;
         }
 
-        public async Task<IEnumerable<ProductoDTO>> ObtenerTodosAsync()
+        public async Task<IEnumerable<ProductoDTO>>
+            ObtenerTodosAsync()
         {
-            var productos = await _context.Productos
-                .Include(p => p.Categoria)
-                .ToListAsync();
+            var productos =
+                await _repo.ObtenerTodosAsync();
 
-            return productos.Select(p => new ProductoDTO
-            {
-                Id = p.Id,
-                Nombre = p.Nombre,
-                Descripcion = p.Descripcion,
-                Precio = p.Precio,
-                Stock = p.Stock,
-                CategoriaId = p.CategoriaId,
-                CategoriaNombre = p.Categoria?.Nombre ?? string.Empty
-            }).ToList();
+            return productos
+                .Select(MapearProducto)
+                .ToList();
         }
 
-        public async Task<ProductoDTO> ObtenerPorIdAsync(int id)
+        public async Task<ProductoDTO>
+            ObtenerPorIdAsync(int id)
         {
-            var producto = await _context.Productos
-                .Include(p => p.Categoria)
-                .FirstOrDefaultAsync(p => p.Id == id);
+            var producto =
+                await _repo.ObtenerPorIdAsync(id);
 
             if (producto == null)
-                throw new Exception($"Producto con ID {id} no encontrado");
+                throw new Exception(
+                    $"Producto con ID {id} no encontrado");
 
-            return new ProductoDTO
-            {
-                Id = producto.Id,
-                Nombre = producto.Nombre,
-                Descripcion = producto.Descripcion,
-                Precio = producto.Precio,
-                Stock = producto.Stock,
-                CategoriaId = producto.CategoriaId,
-                CategoriaNombre = producto.Categoria?.Nombre ?? string.Empty
-            };
+            return MapearProducto(producto);
         }
 
-        public async Task<IEnumerable<ProductoDTO>> ObtenerPorCategoriaAsync(int categoriaId)
+        public async Task<IEnumerable<ProductoDTO>>
+            ObtenerPorCategoriaAsync(
+                int categoriaId)
         {
-            var productos = await _context.Productos
-                .Include(p => p.Categoria)
-                .Where(p => p.CategoriaId == categoriaId)
-                .ToListAsync();
+            var productos =
+                await _repo.ObtenerPorCategoriaAsync(
+                    categoriaId);
 
-            return productos.Select(p => new ProductoDTO
-            {
-                Id = p.Id,
-                Nombre = p.Nombre,
-                Descripcion = p.Descripcion,
-                Precio = p.Precio,
-                Stock = p.Stock,
-                CategoriaId = p.CategoriaId,
-                CategoriaNombre = p.Categoria?.Nombre ?? string.Empty
-            }).ToList();
+            return productos
+                .Select(MapearProducto)
+                .ToList();
         }
 
-        public async Task<IEnumerable<ProductoDTO>> BuscarPorNombreAsync(string termino)
+        public async Task<IEnumerable<ProductoDTO>>
+            BuscarPorNombreAsync(
+                string termino)
         {
             termino = termino.Trim();
 
-            var productos = await _context.Productos
-                .Include(p => p.Categoria)
-                .Where(p => p.Nombre.Contains(termino))
-                .ToListAsync();
+            var productos =
+                await _repo.BuscarPorNombreAsync(
+                    termino);
 
-            return productos.Select(p => new ProductoDTO
-            {
-                Id = p.Id,
-                Nombre = p.Nombre,
-                Descripcion = p.Descripcion,
-                Precio = p.Precio,
-                Stock = p.Stock,
-                CategoriaId = p.CategoriaId,
-                CategoriaNombre = p.Categoria?.Nombre ?? string.Empty
-            }).ToList();
+            return productos
+                .Select(MapearProducto)
+                .ToList();
         }
 
-        public async Task<ProductoDTO> CrearAsync(CrearProductoDTO dto)
+        public async Task<ProductoDTO>
+            CrearAsync(
+                CrearProductoDTO dto)
         {
-            if (string.IsNullOrWhiteSpace(dto.Nombre))
-                throw new Exception("El nombre del producto es obligatorio");
-            if (dto.Precio <= 0)
-                throw new Exception("El precio debe ser mayor a 0");
-            if (dto.Stock < 0)
-                throw new Exception("El stock no puede ser negativo");
+            ValidarProducto(dto);
 
-            // Verificar que la categoría existe
-            var categoriaExiste = await _context.Categorias.AnyAsync(c => c.Id == dto.CategoriaId);
+            bool categoriaExiste =
+                await _repo.ExisteCategoriaAsync(
+                    dto.CategoriaId);
+
             if (!categoriaExiste)
-                throw new Exception($"Categoría con ID {dto.CategoriaId} no encontrada");
+                throw new Exception(
+                    "Categoría no encontrada");
 
             var producto = new Producto
             {
@@ -117,57 +90,109 @@ namespace Gestion_de_productos.Services
                 CategoriaId = dto.CategoriaId
             };
 
-            _context.Productos.Add(producto);
-            await _context.SaveChangesAsync();
+            await _repo.CrearAsync(producto);
 
-            var categoria = await _context.Categorias.FirstOrDefaultAsync(c => c.Id == dto.CategoriaId);
+            var creado =
+                await _repo.ObtenerPorIdAsync(
+                    producto.Id);
 
-            return new ProductoDTO
-            {
-                Id = producto.Id,
-                Nombre = producto.Nombre,
-                Descripcion = producto.Descripcion,
-                Precio = producto.Precio,
-                Stock = producto.Stock,
-                CategoriaId = producto.CategoriaId,
-                CategoriaNombre = categoria?.Nombre ?? string.Empty
-            };
+            return MapearProducto(creado!);
         }
 
-        public async Task<bool> ActualizarAsync(int id, ActualizarProductoDTO dto)
+        public async Task<bool>
+            ActualizarAsync(
+                int id,
+                ActualizarProductoDTO dto)
         {
-            var producto = await _context.Productos.FirstOrDefaultAsync(p => p.Id == id);
-            if (producto == null)
-                throw new Exception($"Producto con ID {id} no encontrado");
+            var producto =
+                await _repo.ObtenerPorIdAsync(id);
 
-            if (string.IsNullOrWhiteSpace(dto.Nombre))
-                throw new Exception("El nombre del producto es obligatorio");
-            if (dto.Precio <= 0)
-                throw new Exception("El precio debe ser mayor a 0");
-            if (dto.Stock < 0)
-                throw new Exception("El stock no puede ser negativo");
+            if (producto == null)
+                throw new Exception(
+                  $"Producto con ID {id} no encontrado");
+
+            ValidarProducto(dto);
 
             producto.Nombre = dto.Nombre;
             producto.Descripcion = dto.Descripcion;
             producto.Precio = dto.Precio;
             producto.Stock = dto.Stock;
 
-            _context.Productos.Update(producto);
-            await _context.SaveChangesAsync();
+            await _repo.ActualizarAsync(producto);
 
             return true;
         }
 
-        public async Task<bool> EliminarAsync(int id)
+        public async Task<bool>
+            EliminarAsync(int id)
         {
-            var producto = await _context.Productos.FirstOrDefaultAsync(p => p.Id == id);
-            if (producto == null)
-                throw new Exception($"Producto con ID {id} no encontrado");
+            var producto =
+                await _repo.ObtenerPorIdAsync(id);
 
-            _context.Productos.Remove(producto);
-            await _context.SaveChangesAsync();
+            if (producto == null)
+                throw new Exception(
+                  $"Producto con ID {id} no encontrado");
+
+            await _repo.EliminarAsync(producto);
 
             return true;
         }
+
+
+        // ==========================
+        // Métodos privados auxiliares
+        // ==========================
+
+        private ProductoDTO MapearProducto(
+            Producto p)
+        {
+            return new ProductoDTO
+            {
+                Id = p.Id,
+                Nombre = p.Nombre,
+                Descripcion = p.Descripcion,
+                Precio = p.Precio,
+                Stock = p.Stock,
+                CategoriaId = p.CategoriaId,
+                CategoriaNombre =
+                    p.Categoria?.Nombre
+                    ?? string.Empty
+            };
+        }
+
+
+        private void ValidarProducto(
+            CrearProductoDTO dto)
+        {
+            if (string.IsNullOrWhiteSpace(dto.Nombre))
+                throw new Exception(
+                    "El nombre es obligatorio");
+
+            if (dto.Precio <= 0)
+                throw new Exception(
+                    "Precio inválido");
+
+            if (dto.Stock < 0)
+                throw new Exception(
+                    "Stock inválido");
+        }
+
+
+        private void ValidarProducto(
+            ActualizarProductoDTO dto)
+        {
+            if (string.IsNullOrWhiteSpace(dto.Nombre))
+                throw new Exception(
+                    "El nombre es obligatorio");
+
+            if (dto.Precio <= 0)
+                throw new Exception(
+                    "Precio inválido");
+
+            if (dto.Stock < 0)
+                throw new Exception(
+                    "Stock inválido");
+        }
+
     }
 }
